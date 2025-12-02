@@ -1,9 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { CreatePersonDto } from './dto/create-person.dto';
 import { UpdatePersonDto } from './dto/update-person.dto';
+import { ResponsePersonDto } from './dto/response-person.dto';
 import { Person } from './entities/person.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { plainToInstance } from 'class-transformer';
 
 @Injectable()
 export class PersonService {
@@ -14,21 +16,23 @@ export class PersonService {
   )
   {}
   
-  async create(createPersonDto: CreatePersonDto): Promise<Person> {
+  async create(createPersonDto: CreatePersonDto): Promise<ResponsePersonDto> {
     const newPerson = this.personRepository.create({
       ...createPersonDto,
       middle_name: createPersonDto.middle_name ?? '',
       address: createPersonDto.address ?? '',
       phone: createPersonDto.phone ?? ''
       });
-    return await this.personRepository.save(newPerson)
+    const savedPerson = await this.personRepository.save(newPerson)
+    return plainToInstance(ResponsePersonDto,savedPerson);
   }
 
-  async findAll(): Promise<Person[]> {
-    return await this.personRepository.find();
+  async findAll(): Promise<ResponsePersonDto[]> {
+    const people = await this.personRepository.find();
+    return plainToInstance(ResponsePersonDto,people);
   }
 
-  async findOne(id: number): Promise<Person> {
+  async findOne(id: number): Promise<ResponsePersonDto> {
     const person = await this.personRepository.findOne({ where: { id } });
     
     if (!person) {
@@ -38,7 +42,7 @@ export class PersonService {
     return person;
   }
 
-  async update(id: number, updatePersonDto: UpdatePersonDto): Promise<Person> {
+  async update(id: number, updatePersonDto: UpdatePersonDto): Promise<ResponsePersonDto> {
     const personToUpdate = await this.personRepository.preload({
       id,
       ...updatePersonDto,
@@ -48,7 +52,8 @@ export class PersonService {
       throw new Error(`Persona con ID ${id} no encontrada. No se actualizó nada`);
     }
     
-    return await this.personRepository.save(personToUpdate);
+    const updatePerson = await this.personRepository.save(personToUpdate);
+    return plainToInstance(ResponsePersonDto,updatePerson);
   }
 
   async remove(id: number): Promise<void> {

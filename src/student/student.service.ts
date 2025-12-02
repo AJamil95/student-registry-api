@@ -5,6 +5,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Student } from './entities/student.entity';
 import { Repository } from 'typeorm';
 import { Person } from 'src/person/entities/person.entity';
+import { ResponseStudentDto } from './dto/response-student.dto';
+import { plainToInstance } from 'class-transformer';
 
 @Injectable()
 export class StudentService {
@@ -16,7 +18,7 @@ export class StudentService {
     private readonly personRepository: Repository<Person>,
   ){}
 
-  async create(createStudentDto: CreateStudentDto): Promise<Student> {
+  async create(createStudentDto: CreateStudentDto): Promise<ResponseStudentDto>{
     const person = await this.personRepository.findOne({
       where: { id: createStudentDto.person_id }
     });
@@ -30,14 +32,16 @@ export class StudentService {
       person: person
     });
 
-    return await this.studentRepository.save(student);
+    const newStudent = await this.studentRepository.save(student);
+    return plainToInstance(ResponseStudentDto,newStudent);
   }
 
-  async findAll(): Promise<Student[]> {
-    return await this.studentRepository.find();
+  async findAll(): Promise<ResponseStudentDto[]> {
+    const students = await this.studentRepository.find();
+    return plainToInstance(ResponseStudentDto,students);
   }
 
-  async findOne(id: number): Promise<Student> {
+  async findOne(id: number): Promise<ResponseStudentDto> {
     const student = await this.studentRepository.findOne({ 
       where: { id },
       relations: ['person']
@@ -47,11 +51,19 @@ export class StudentService {
       throw new Error(`Estudiante con ID ${id} no encontrado`);
     }
     
-    return student;
+    return plainToInstance(ResponseStudentDto,student);
   }
 
-  async update(id: number, updateStudentDto: UpdateStudentDto): Promise<Student> {
-    const student = await this.findOne(id);
+  async update(id: number, updateStudentDto: UpdateStudentDto): Promise<ResponseStudentDto> {
+    const student = await this.studentRepository.findOne(
+      { 
+        where: { id },
+        relations: ['person']
+      }
+    );
+    if (!student) {
+        throw new Error(`Estudiante con ID ${id} no encontrado`);
+    }
     
     if (updateStudentDto.person_id) {
       const person = await this.personRepository.findOne({
@@ -69,7 +81,8 @@ export class StudentService {
       student.study_plan = updateStudentDto.study_plan;
     }
     
-    return await this.studentRepository.save(student);
+    const updatedStudent = await this.studentRepository.save(student);
+    return plainToInstance(ResponseStudentDto,updatedStudent);
   }
 
   async remove(id: number): Promise<void> {
