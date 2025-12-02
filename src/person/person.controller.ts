@@ -13,10 +13,11 @@ export class PersonController {
   @Post()
   @ApiOperation({
     summary: 'Crear una nueva persona',
-    description: 'Crea un nuevo registro de persona con sus datos básicos',
+    description: 'Crea un nuevo registro de persona con sus datos básicos. Los campos apellido_paterno, nombre y fecha_nacimiento son requeridos. El apellido_materno, dirección y teléfono son opcionales.',
   })
   @ApiBody({
     type: CreatePersonDto,
+    description: 'Datos de la persona a crear',
     examples: {
       example1: {
         summary: 'Persona completa',
@@ -45,10 +46,22 @@ export class PersonController {
     status: 201,
     description: 'Persona creada exitosamente',
     type: ResponsePersonDto,
+    schema: {
+      example: {
+        ID: 1,
+        apellido_paterno: 'García',
+        apellido_materno: 'López',
+        nombre: 'Juan',
+        fecha_nacimiento: '1990-05-15',
+        direccion: 'Calle Principal 123, Apartamento 4B',
+        telefono: '5551234567',
+        estudiantes: []
+      }
+    }
   })
   @ApiResponse({
     status: 400,
-    description: 'Datos inválidos en la solicitud',
+    description: 'Datos inválidos: campos requeridos faltantes, formato inválido de fecha (debe ser YYYY-MM-DD), caracteres no permitidos en nombres/apellidos, o longitud de campos excedida',
   })
   async create(@Body() createPersonDto: CreatePersonDto): Promise<ResponsePersonDto> {
     return await this.personService.create(createPersonDto);
@@ -57,12 +70,28 @@ export class PersonController {
   @Get()
   @ApiOperation({
     summary: 'Obtener todas las personas',
-    description: 'Retorna un listado de todas las personas registradas en el sistema',
+    description: 'Retorna un listado completo de todas las personas registradas en el sistema, incluyendo sus estudiantes asociados',
   })
   @ApiResponse({
     status: 200,
     description: 'Listado de personas obtenido exitosamente',
     type: [ResponsePersonDto],
+    schema: {
+      example: [
+        {
+          ID: 1,
+          apellido_paterno: 'García',
+          apellido_materno: 'López',
+          nombre: 'Juan',
+          fecha_nacimiento: '1990-05-15',
+          direccion: 'Calle Principal 123',
+          telefono: '5551234567',
+          estudiantes: [
+            { ID: 1, plan_estudios: 'Ingeniería en Sistemas' }
+          ]
+        }
+      ]
+    }
   })
   async findAll(): Promise<ResponsePersonDto[]> {
     return await this.personService.findAll();
@@ -71,11 +100,11 @@ export class PersonController {
   @Get(':id')
   @ApiOperation({
     summary: 'Obtener persona por ID',
-    description: 'Retorna los datos de una persona específica junto con sus estudiantes asociados',
+    description: 'Retorna los datos de una persona específica junto con el listado de todos sus estudiantes asociados',
   })
   @ApiParam({
     name: 'id',
-    description: 'ID único de la persona',
+    description: 'ID único de la persona a recuperar',
     example: 1,
     type: Number,
   })
@@ -83,10 +112,25 @@ export class PersonController {
     status: 200,
     description: 'Persona encontrada exitosamente',
     type: ResponsePersonDto,
+    schema: {
+      example: {
+        ID: 1,
+        apellido_paterno: 'García',
+        apellido_materno: 'López',
+        nombre: 'Juan',
+        fecha_nacimiento: '1990-05-15',
+        direccion: 'Calle Principal 123',
+        telefono: '5551234567',
+        estudiantes: [
+          { ID: 1, plan_estudios: 'Ingeniería en Sistemas Computacionales' },
+          { ID: 2, plan_estudios: 'Maestría en Ciencia de Datos' }
+        ]
+      }
+    }
   })
   @ApiResponse({
     status: 404,
-    description: 'Persona no encontrada',
+    description: 'Persona no encontrada con el ID proporcionado',
   })
   async findOne(@Param('id') id: string): Promise<ResponsePersonDto> {
     return await this.personService.findOne(+id);
@@ -95,7 +139,7 @@ export class PersonController {
   @Patch(':id')
   @ApiOperation({
     summary: 'Actualizar datos de una persona',
-    description: 'Actualiza los datos de una persona existente. Todos los campos son opcionales.',
+    description: 'Actualiza parcialmente los datos de una persona existente. Todos los campos son opcionales, solo se actualizan los campos proporcionados en la solicitud.',
   })
   @ApiParam({
     name: 'id',
@@ -105,6 +149,7 @@ export class PersonController {
   })
   @ApiBody({
     type: UpdatePersonDto,
+    description: 'Datos parciales de la persona a actualizar (todos los campos son opcionales)',
     examples: {
       example1: {
         summary: 'Actualizar solo nombre',
@@ -120,20 +165,39 @@ export class PersonController {
           direccion: 'Avenida Secundaria 456',
         },
       },
+      example3: {
+        summary: 'Actualizar información de contacto',
+        value: {
+          telefono: '5555555555',
+          direccion: 'Nueva dirección 789, Piso 5A',
+        },
+      },
     },
   })
   @ApiResponse({
     status: 200,
     description: 'Persona actualizada exitosamente',
     type: ResponsePersonDto,
+    schema: {
+      example: {
+        ID: 1,
+        apellido_paterno: 'García',
+        apellido_materno: 'López',
+        nombre: 'Carlos',
+        fecha_nacimiento: '1990-05-15',
+        direccion: 'Avenida Secundaria 456',
+        telefono: '5559876543',
+        estudiantes: []
+      }
+    }
   })
   @ApiResponse({
     status: 404,
-    description: 'Persona no encontrada',
+    description: 'Persona no encontrada con el ID proporcionado',
   })
   @ApiResponse({
     status: 400,
-    description: 'Datos inválidos en la solicitud',
+    description: 'Datos inválidos: formato de fecha incorrecto, caracteres no permitidos en nombres/apellidos, números en campos de texto, o longitud de campos excedida',
   })
   async update(@Param('id') id: string, @Body() updatePersonDto: UpdatePersonDto): Promise<ResponsePersonDto> {
     return await this.personService.update(+id, updatePersonDto);
@@ -142,7 +206,7 @@ export class PersonController {
   @Delete(':id')
   @ApiOperation({
     summary: 'Eliminar una persona',
-    description: 'Elimina un registro de persona del sistema. Nota: Esta operación es irreversible.',
+    description: 'Elimina un registro de persona del sistema permanentemente. Advertencia: Esta operación es irreversible y también eliminará todos los registros de estudiantes asociados a esta persona.',
   })
   @ApiParam({
     name: 'id',
@@ -152,11 +216,11 @@ export class PersonController {
   })
   @ApiResponse({
     status: 200,
-    description: 'Persona eliminada exitosamente',
+    description: 'Persona eliminada exitosamente. Si la persona tenía estudiantes asociados, estos también fueron eliminados.',
   })
   @ApiResponse({
     status: 404,
-    description: 'Persona no encontrada',
+    description: 'Persona no encontrada con el ID proporcionado. No se realizó ninguna operación de eliminación.',
   })
   async remove(@Param('id') id: string): Promise<void> {
     return await this.personService.remove(+id);
